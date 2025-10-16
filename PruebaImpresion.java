@@ -1,5 +1,4 @@
 
-import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.Image;
@@ -62,19 +61,20 @@ public class PruebaImpresion {
 
             double w = pageFormat.getImageableWidth();
             double h = pageFormat.getImageableHeight();
-            int y = 0, ls = 4;
+            int y = 0;
+            int ls = PrintLayoutConfig.Ticket.ESPACIADO_LINEA;
 
 // Origen ya está en imageableX,imageableY por tu translate previo
             AffineTransform old = g2.getTransform();
 
-            g2.setFont(new Font("SansSerif", Font.BOLD, 9));
+            g2.setFont(PrintLayoutConfig.Ticket.FUENTE_FOLIO);
             FontMetrics fm = g2.getFontMetrics();
 
-            String folioText = "FOLIO: LP" + folio;
+            String folioText = PrintLayoutConfig.Ticket.PREFIJO_FOLIO + folio;
 
 // Pegado al borde derecho del área imprimible
-            int topInsetPts = 60;         // distancia desde arriba
-            int rightNudge = 10;         // 0 = justo al borde del área imprimible
+            int topInsetPts = PrintLayoutConfig.Ticket.DESFASE_FOLIO_SUPERIOR;         // distancia desde arriba
+            int rightNudge = PrintLayoutConfig.Ticket.DESFASE_FOLIO_DERECHO;         // 0 = justo al borde del área imprimible
 
             g2.translate(pageFormat.getImageableWidth() - rightNudge, 0);
             g2.rotate(Math.PI / 2);
@@ -102,21 +102,21 @@ public class PruebaImpresion {
             }
 
 // === 2) Título centrado ===
-            g2.setFont(new Font("SansSerif", Font.BOLD, 55));
-            String titulo = "ENVY";
+            g2.setFont(PrintLayoutConfig.Ticket.FUENTE_TITULO);
+            String titulo = PrintLayoutConfig.Ticket.TITULO;
             int tw = g2.getFontMetrics().stringWidth(titulo);
             g2.drawString(titulo, (int) Math.round((w - tw) / 2.0), y + g2.getFontMetrics().getAscent());
             y += g2.getFontMetrics().getHeight() + ls;
 
 // === 3) Fecha centrada ===
-            g2.setFont(new Font("SansSerif", Font.PLAIN, 15));
-            String fechaLinea = "FECHA: " + fechaMostrar;
+            g2.setFont(PrintLayoutConfig.Ticket.FUENTE_FECHA);
+            String fechaLinea = PrintLayoutConfig.Ticket.PREFIJO_FECHA + fechaMostrar;
             int fw = g2.getFontMetrics().stringWidth(fechaLinea);
             g2.drawString(fechaLinea, (int) Math.round((w - fw) / 2.0), y + g2.getFontMetrics().getAscent());
             y += g2.getFontMetrics().getHeight() + ls;
 
 // === 4) Mensaje principal centrado ===
-            g2.setFont(new Font("SansSerif", Font.BOLD, 16));
+            g2.setFont(PrintLayoutConfig.Ticket.FUENTE_MENSAJE);
             int mw = g2.getFontMetrics().stringWidth(mensaje);
             g2.drawString(mensaje, (int) Math.round((w - mw) / 2.0), y + g2.getFontMetrics().getAscent());
             y += g2.getFontMetrics().getHeight() + 18;
