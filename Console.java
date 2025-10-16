@@ -1,5 +1,9 @@
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Scanner;
@@ -8,7 +12,11 @@ public class Console {
 
     // ===== Configuración compartida (leída por PruebaImpresion) =====
     public static String MENSAJE = "ACCESO";
-    public static String FECHA_ISO = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+    private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final ZoneId ZONE = CorteManager.ZONE;
+    private static final LocalTime SHIFT_START = CorteManager.SHIFT_START;
+    public static String FECHA_ISO =
+            DateOps.operationalDate(LocalDateTime.now(ZONE), ZONE, SHIFT_START).format(FMT);
     public static String LOGO_PATH = "C:\\SWAP\\Console app betaenvy_logo.jpg";
     public static String PRINTER_HINT = ""; // "" = predeterminada, o "epson", "tm-t20", etc.
 
@@ -16,11 +24,10 @@ public class Console {
     public static long FOLIO_ACTUAL = 1010L; // se sobrescribe al inicio pidiéndolo al usuario
     public static int FOLIO_WIDTH = 7; // cantidad de dígitos con ceros a la izquierda
 
-    private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-
     public static void main(String[] args) {
-
-        CorteManager.init(FECHA_ISO);
+        LocalDate opDate = currentOperationalDate();
+        FECHA_ISO = opDate.format(FMT);
+        CorteManager.init(opDate);
         // 0 = imprime siempre el corte al cerrar; 1 = NO imprimir al cerrar
         CorteManager.BANDERA_IMPRESION_AL_CERRAR = 0;
 
@@ -52,6 +59,7 @@ public class Console {
                       1) Imprimir cover
                       3) Recuperar folio
                       4) Hacer corte
+                      5) Reimprimir corte por fecha (YYYY-MM-DD)
                       0) Salir
                     """);
 
@@ -67,23 +75,10 @@ public class Console {
             switch (opcion) {
                 case 1 ->
                     app.impresion(); // imprime con fecha de hoy
-                case 2 -> {
-
-                    app.impresion(); // imprime con fecha de hoy
-                    /*
-                     * System.out.print("Ingrese fecha (yyyy-MM-dd): ");
-                     * String fechaStr = scanner.nextLine().trim();
-                     * try {
-                     * LocalDate.parse(fechaStr, FMT); // valida formato
-                     * app.impresion(fechaStr);
-                     * } catch (DateTimeParseException ex) {
-                     * System.out.println("Formato inválido. Use yyyy-MM-dd (ej. 2025-09-02)");
-                     * }
-                     */
-                }
-                case 3 -> // Recuperar corte (ajusta el número a tu menú)
+                case 3 -> // Recuperar folio sugerido
                 {
-                    Long sug = CorteManager.recuperarSiguienteFolio(FECHA_ISO);
+                    LocalDate vigente = currentOperationalDate();
+                    Long sug = CorteManager.recuperarSiguienteFolio(vigente);
                     if (sug != null) {
                         FOLIO_ACTUAL = sug;
                         System.out.println("Folio recuperado: " + (FOLIO_ACTUAL));
@@ -94,15 +89,31 @@ public class Console {
                 }
                 case 4 -> // Imprimir corte (ajusta el número a tu menú)
                 {
+                    LocalDate vigente = currentOperationalDate();
                     if (CorteManager.validarContrasena(scanner)) {
-                        CorteManager.hacerCorteConImpresion(FECHA_ISO, PRINTER_HINT);
+                        CorteManager.hacerCorteConImpresion(vigente, PRINTER_HINT);
                     } else {
                         System.out.println("Contraseña incorrecta.");
                     }
                     break;
                 }
+                case 5 -> {
+                    System.out.print("Ingrese fecha operativa (yyyy-MM-dd): ");
+                    String fechaStr = scanner.nextLine().trim();
+                    try {
+                        LocalDate fecha = LocalDate.parse(fechaStr, FMT);
+                        boolean ok = CorteManager.reimprimirCorte(fecha, PRINTER_HINT);
+                        if (!ok) {
+                            System.out.println("No se generó el corte para esa fecha.");
+                        }
+                    } catch (DateTimeParseException ex) {
+                        System.out.println("Formato inválido. Use yyyy-MM-dd (ej. 2025-09-02)");
+                    }
+                    break;
+                }
                 case 0 -> {
-                    boolean permitirSalir = CorteManager.manejarCierreConCorte(scanner, FECHA_ISO, PRINTER_HINT);
+                    LocalDate vigente = currentOperationalDate();
+                    boolean permitirSalir = CorteManager.manejarCierreConCorte(scanner, vigente, PRINTER_HINT);
                     if (!permitirSalir) {
                         // Regresa al menú sin salir
                         break;
@@ -120,8 +131,10 @@ public class Console {
     }
 
     public void impresion() {
-        LocalDate fecha = LocalDate.now();
-        FECHA_ISO = fecha.format(FMT); // actualiza la variable compartida
+        ZonedDateTime timestamp = ZonedDateTime.now(ZONE);
+        LocalDate opDate = DateOps.operationalDate(timestamp.toLocalDateTime(), ZONE, SHIFT_START);
+        FECHA_ISO = opDate.format(FMT);
+        CorteManager.init(opDate);
         System.out.println("Logo Envy");
         System.out.println(FECHA_ISO);
 
@@ -129,11 +142,16 @@ public class Console {
             PruebaImpresion.imprimirDesdeConsole(); // lanza impresión
 
             // registra el ticket para el corte (folio, mensaje, fecha)
-            CorteManager.registrarTicket(FOLIO_ACTUAL-1, MENSAJE, FECHA_ISO);
+            CorteManager.registrarTicket(FOLIO_ACTUAL - 1, MENSAJE, timestamp);
 
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private static LocalDate currentOperationalDate() {
+        ZonedDateTime now = ZonedDateTime.now(ZONE);
+        return DateOps.operationalDate(now.toLocalDateTime(), ZONE, SHIFT_START);
     }
 
     public void impresion(String fecha) {
