@@ -8,11 +8,11 @@ Write-Host "Usando JDK bin: $JdkBin"
 $env:PATH = "$JdkBin;" + $env:PATH
 
 Push-Location $ProjectDir
-if (Test-Path -Path "out") { Remove-Item -Recurse -Force out }
-javac -d out --release 21 *.java
+Write-Host "Compilando con Maven (incluye pruebas unitarias)"
+mvn clean package
 if ($LASTEXITCODE -ne 0) { Write-Error "Compilación fallida"; Pop-Location; exit 1 }
 
 Write-Host "Compilación OK — lanzando clase Console (salir con Ctrl+C o 0 en el menú)"
-java -cp out Console
+java -cp target/classes Console
 
 Pop-Location
